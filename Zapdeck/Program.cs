@@ -1,6 +1,7 @@
 ﻿using System.Configuration;
 using System.Reflection;
 using DSharpPlus;
+using DSharpPlus.CommandsNext;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -34,7 +35,20 @@ namespace Zapdeck
                 .AddSingleton<IConfiguration>(configuration)
                 .AddSingleton(discordClient)
                 .AddSingleton<IBot, ZapdeckBot>()
+                //.AddSingleton<IPokemonTcgService, PokemonTcgService>()
                 .BuildServiceProvider();
+
+            var commandsNextConfig = new CommandsNextConfiguration
+            {
+                StringPrefixes = ["[["],
+                EnableMentionPrefix = false,
+                EnableDms = false,
+                //Services = serviceProvider,
+            };
+
+            var commandsNext = discordClient.UseCommandsNext(commandsNextConfig);
+
+            commandsNext.RegisterCommands(Assembly.GetExecutingAssembly());
             
             try
             {

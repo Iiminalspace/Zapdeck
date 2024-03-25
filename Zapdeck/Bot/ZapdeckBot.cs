@@ -1,4 +1,6 @@
+using System.Text.RegularExpressions;
 using DSharpPlus;
+using DSharpPlus.EventArgs;
 
 namespace Zapdeck.Bot
 {
@@ -6,6 +8,8 @@ namespace Zapdeck.Bot
    {
         public async Task StartAsync()
         {
+            discordClient.Ready += DiscordClient_Ready;
+            Console.WriteLine("Connecting to Discord");
             await discordClient.ConnectAsync();
         }
 
@@ -16,6 +20,12 @@ namespace Zapdeck.Bot
                 await discordClient.DisconnectAsync();
                 discordClient.Dispose();
             }
+        }
+
+        private static Task DiscordClient_Ready(DiscordClient client, ReadyEventArgs args)
+        {
+            Console.WriteLine("Client connected");
+            return Task.CompletedTask;
         }
     } 
 }
