@@ -1,5 +1,3 @@
-using Microsoft.Extensions.DependencyInjection;
-
 namespace Zapdeck.Bot
 {
     public interface IBot
