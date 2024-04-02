@@ -22,7 +22,8 @@ namespace Zapdeck
                 {
                     Token = configuration["DiscordToken"] ?? throw new ConfigurationErrorsException("Missing Discord token."),
                     AutoReconnect = true,
-                    Intents = DiscordIntents.AllUnprivileged | DiscordIntents.MessageContents
+                    Intents = DiscordIntents.AllUnprivileged | DiscordIntents.MessageContents,
+                    TokenType = TokenType.Bot
                 };
             
             var discordClient = new DiscordClient(discordConfig);
