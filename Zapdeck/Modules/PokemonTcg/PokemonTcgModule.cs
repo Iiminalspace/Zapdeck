@@ -1,26 +1,21 @@
-using System.Text.RegularExpressions;
-using DSharpPlus.CommandsNext;
-using DSharpPlus.CommandsNext.Attributes;
+using DSharpPlus;
+using DSharpPlus.EventArgs;
+using Zapdeck.Helpers;
 
 namespace Zapdeck.Modules.PokemonTcg
 {
-    public partial class PokemonTcgModule : BaseCommandModule
+    public class PokemonTcgModule : IModule
     {
-        [Command("#")]
-        public static async Task Legality(CommandContext ctx)
+        public async Task OnMessageCreated(DiscordClient client, MessageCreateEventArgs e)
         {
              //Do not reply if the author is a bot
-            if (ctx.Message.Author.IsBot) return;
+            if (e.Message.Author.IsBot) return;
 
-            var regex = MatchForLegality();
-            if (regex.IsMatch(ctx.Message.Content))
+            if (RegexValidator.MatchForLegality().IsMatch(e.Message.Content))
             {
-                var response = regex.Match(ctx.Message.Content).Groups[1].ToString();
-                await ctx.Channel.SendMessageAsync(response);
+                var response = RegexValidator.GetLegalityName(e.Message.Content);
+                await e.Channel.SendMessageAsync(response);
             }
         }
-
-        [GeneratedRegex(@"\[\[\#([^\(]*?)(?:\((.*?)\))?\]\]")]
-        private static partial Regex MatchForLegality();
     }
 }
