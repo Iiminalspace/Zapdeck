@@ -4,6 +4,7 @@ using DSharpPlus;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using PokemonTcgSdk.Standard.Infrastructure.HttpClients;
 using Zapdeck.Bot;
 using Zapdeck.Modules;
 using Zapdeck.Modules.PokemonTcg;
@@ -28,6 +29,10 @@ namespace Zapdeck
             
             var discordClient = new DiscordClient(discordConfig);
 
+            var pokeClientKey = configuration["PokemonTcgApiKey"] ?? throw new ConfigurationErrorsException("Missing PokemonTcg API key.");
+
+            var pokeClient = new PokemonApiClient(pokeClientKey);
+
             var serviceProvider = new ServiceCollection()
                 .AddLogging(options =>
                 {
@@ -36,9 +41,10 @@ namespace Zapdeck
                 })
                 .AddSingleton<IConfiguration>(configuration)
                 .AddSingleton(discordClient)
+                .AddSingleton(pokeClient)
                 .AddSingleton<IBot, ZapdeckBot>()
                 .AddSingleton<IModule, PokemonTcgModule>()
-                //.AddSingleton<IPokemonTcgService, PokemonTcgService>()
+                .AddSingleton<IPokemonTcgService, PokemonTcgService>()
                 .BuildServiceProvider();
 
             
