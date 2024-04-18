@@ -18,32 +18,35 @@ namespace Zapdeck.Modules.PokemonTcg
             }
             else if (RegexValidator.MatchForPrice().IsMatch(e.Message.Content))
             {
-                await SendPriceMessage(e);
+                await SendPriceMessageAsync(e);
             }
             else if (RegexValidator.MatchForLegality().IsMatch(e.Message.Content))
             {
-                await SendLegalityMessage(e);
+                await SendLegalityMessageAsync(e);
             }
             else if (RegexValidator.MatchForCardText().IsMatch(e.Message.Content))
             {
-                await SendCardTextMessage(e);
+                await SendCardTextMessageAsync(e);
             }
         }
-        private static async Task SendImageMessage(MessageCreateEventArgs e)
+
+        private async Task SendImageMessage(MessageCreateEventArgs e)
         {
             var imageName = RegexValidator.GetImageName(e.Message.Content);
+
+            var imageUri = await pokemonTcgService.GetImageUriAsync(imageName);
 
             var msg = new DiscordEmbedBuilder
             {
                 Color = DiscordColor.Orange,
-                ImageUrl = "https://archives.bulbagarden.net/media/upload/thumb/1/17/Cardback.jpg/429px-Cardback.jpg?20240322144729",
+                ImageUrl = imageUri?.AbsoluteUri,
                 Description = imageName
             };
 
             await e.Channel.SendMessageAsync(embed: msg);
         }
 
-        private static async Task SendCardTextMessage(MessageCreateEventArgs e)
+        private static async Task SendCardTextMessageAsync(MessageCreateEventArgs e)
         {
             var cardTextName = RegexValidator.GetCardTextName(e.Message.Content);
 
@@ -56,7 +59,7 @@ namespace Zapdeck.Modules.PokemonTcg
             await e.Channel.SendMessageAsync(embed: msg);
         }
 
-        private static async Task SendPriceMessage(MessageCreateEventArgs e)
+        private static async Task SendPriceMessageAsync(MessageCreateEventArgs e)
         {
             var priceName = RegexValidator.GetPriceName(e.Message.Content);
 
@@ -69,7 +72,7 @@ namespace Zapdeck.Modules.PokemonTcg
             await e.Channel.SendMessageAsync(embed: msg);
         }
 
-        private static async Task SendLegalityMessage(MessageCreateEventArgs e)
+        private static async Task SendLegalityMessageAsync(MessageCreateEventArgs e)
         {
             var legalityName = RegexValidator.GetLegalityName(e.Message.Content);
 
