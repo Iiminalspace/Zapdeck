@@ -1,7 +1,10 @@
 ﻿using DSharpPlus;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
+using System.Globalization;
 using Zapdeck.Helpers;
+using Zapdeck.Models.PokemonTcg;
+using static DSharpPlus.Entities.DiscordEmbedBuilder;
 
 namespace Zapdeck.Modules.PokemonTcg
 {
@@ -34,13 +37,13 @@ namespace Zapdeck.Modules.PokemonTcg
         {
             var imageName = RegexValidator.GetImageName(e.Message.Content);
 
-            var imageUri = await pokemonTcgService.GetImageUriAsync(imageName);
+            var imageUriResponse = await pokemonTcgService.GetImageUriAsync(imageName);
 
             var msg = new DiscordEmbedBuilder
             {
                 Color = DiscordColor.Orange,
-                ImageUrl = imageUri?.AbsoluteUri,
-                Description = imageName
+                ImageUrl = imageUriResponse.Uri.AbsoluteUri,
+                Title = imageUriResponse.CardName
             };
 
             await e.Channel.SendMessageAsync(embed: msg);
@@ -53,20 +56,30 @@ namespace Zapdeck.Modules.PokemonTcg
             var msg = new DiscordEmbedBuilder
             {
                 Color = DiscordColor.Orange,
-                Description = cardTextName
+                Title = cardTextName,
+                Description = cardTextName,
+                Thumbnail = new EmbedThumbnail
+                {
+                    Url = "https://images.pokemontcg.io/swsh12pt5/60.png"
+                }
             };
 
             await e.Channel.SendMessageAsync(embed: msg);
         }
 
-        private static async Task SendPriceMessageAsync(MessageCreateEventArgs e)
+        private async Task SendPriceMessageAsync(MessageCreateEventArgs e)
         {
             var priceName = RegexValidator.GetPriceName(e.Message.Content);
 
+            var cardPrices = await pokemonTcgService.GetPricesAsync(priceName);
+            string description = BuildPricesDescription(cardPrices);
+
+            //TODO: Format Set and number in title - Charizard ex - PAF 054/091
             var msg = new DiscordEmbedBuilder
             {
                 Color = DiscordColor.Orange,
-                Description = priceName
+                Title = $"Prices for {cardPrices.CardInfo.Name} ({cardPrices.CardInfo.Number})",
+                Description = description
             };
 
             await e.Channel.SendMessageAsync(embed: msg);
@@ -76,6 +89,7 @@ namespace Zapdeck.Modules.PokemonTcg
         {
             var legalityName = RegexValidator.GetLegalityName(e.Message.Content);
 
+            //TODO: Format Set and number in title - Charizard ex - 054/091
             var msg = new DiscordEmbedBuilder
             {
                 Color = DiscordColor.Orange,
@@ -86,5 +100,27 @@ namespace Zapdeck.Modules.PokemonTcg
             await e.Channel.SendMessageAsync(embed: msg);
         }
 
+        private static string BuildPricesDescription(CardPrices cardPrices)
+        {
+            var description = "**TCGPlayer**\n";
+
+            foreach (var tcgPlayerPrice in cardPrices.TcgPlayerPrices)
+            {
+                description += tcgPlayerPrice.Key + ": " + tcgPlayerPrice.Value.ToString("C2") + "\n";
+            }
+
+            description += "\n**CardMarket**\n";
+
+            foreach (var cardMarketPrice in cardPrices.CardMarketPrices)
+            {
+                if (cardMarketPrice.Value > 0M)
+                {
+                    //Using French culture info for Euro formatting
+                    description += cardMarketPrice.Key + ": " + cardMarketPrice.Value.ToString("C2", new CultureInfo("fr-FR")) + "\n";
+                }
+            }
+
+            return description;
+        }
     }
 }
