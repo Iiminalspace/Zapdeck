@@ -4,8 +4,10 @@ namespace Zapdeck.Modules.PokemonTcg
 {
     public interface IPokemonTcgService
     {
-        Task<ImageUri> GetImageUriAsync(string cardName);
+        Task<CardImageUri> GetImageUriAsync(List<string> cardName);
 
-        Task<CardPrices> GetPricesAsync(string cardName);
+        Task<CardLegalities> GetLegalitiesAsync(List<string> cardName);
+
+        Task<CardPrices> GetPricesAsync(List<string> cardName);
     }
 }

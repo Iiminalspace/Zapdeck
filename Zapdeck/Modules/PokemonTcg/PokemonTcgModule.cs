@@ -1,7 +1,9 @@
 ﻿using DSharpPlus;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
+using PokemonTcgSdk.Standard.Infrastructure.HttpClients.CommonModels;
 using System.Globalization;
+using Zapdeck.Exceptions;
 using Zapdeck.Helpers;
 using Zapdeck.Models.PokemonTcg;
 using static DSharpPlus.Entities.DiscordEmbedBuilder;
@@ -10,41 +12,47 @@ namespace Zapdeck.Modules.PokemonTcg
 {
     public class PokemonTcgModule(IPokemonTcgService pokemonTcgService) : IModule
     {
+        private static readonly Dictionary<bool, string> _legalityEmojis = new() { { true, "✅" }, { false, "❌" } };
         public async Task OnMessageCreated(DiscordClient client, MessageCreateEventArgs e)
         {
             //Do not reply if the author is a bot
             if (e.Message.Author.IsBot) return;
 
-            if (RegexValidator.MatchForImage().IsMatch(e.Message.Content))
+            try
             {
-                await SendImageMessage(e);
+                if (RegexValidator.MatchForImage().IsMatch(e.Message.Content))
+                {
+                    await SendImageMessage(e);
+                }
+                else if (RegexValidator.MatchForPrice().IsMatch(e.Message.Content))
+                {
+                    await SendPriceMessageAsync(e);
+                }
+                else if (RegexValidator.MatchForLegality().IsMatch(e.Message.Content))
+                {
+                    await SendLegalityMessageAsync(e);
+                }
+                else if (RegexValidator.MatchForCardText().IsMatch(e.Message.Content))
+                {
+                    await SendCardTextMessageAsync(e);
+                }
             }
-            else if (RegexValidator.MatchForPrice().IsMatch(e.Message.Content))
+            catch (CardNotFoundException ex)
             {
-                await SendPriceMessageAsync(e);
+                await SendErrorMessageAsync(e, ex);
             }
-            else if (RegexValidator.MatchForLegality().IsMatch(e.Message.Content))
-            {
-                await SendLegalityMessageAsync(e);
-            }
-            else if (RegexValidator.MatchForCardText().IsMatch(e.Message.Content))
-            {
-                await SendCardTextMessageAsync(e);
-            }
+            
         }
 
         private async Task SendImageMessage(MessageCreateEventArgs e)
         {
             var imageName = RegexValidator.GetImageName(e.Message.Content);
 
-            var imageUriResponse = await pokemonTcgService.GetImageUriAsync(imageName);
+            var imageUri = await pokemonTcgService.GetImageUriAsync(imageName);
+            var title = $"{imageUri.CardInfo.Name} ({imageUri.CardInfo.Number})";
+            var msg = BuildBaseDiscordEmbed(title, imageUri.CardInfo);
 
-            var msg = new DiscordEmbedBuilder
-            {
-                Color = DiscordColor.Orange,
-                ImageUrl = imageUriResponse.Uri.AbsoluteUri,
-                Title = imageUriResponse.CardName
-            };
+            msg.WithImageUrl(imageUri.Uri.AbsoluteUri).Build();
 
             await e.Channel.SendMessageAsync(embed: msg);
         }
@@ -56,8 +64,8 @@ namespace Zapdeck.Modules.PokemonTcg
             var msg = new DiscordEmbedBuilder
             {
                 Color = DiscordColor.Orange,
-                Title = cardTextName,
-                Description = cardTextName,
+                Title = cardTextName.First(),
+                Description = cardTextName.First(),
                 Thumbnail = new EmbedThumbnail
                 {
                     Url = "https://images.pokemontcg.io/swsh12pt5/60.png"
@@ -72,32 +80,59 @@ namespace Zapdeck.Modules.PokemonTcg
             var priceName = RegexValidator.GetPriceName(e.Message.Content);
 
             var cardPrices = await pokemonTcgService.GetPricesAsync(priceName);
-            string description = BuildPricesDescription(cardPrices);
+            var description = BuildPricesDescription(cardPrices);
+            var title = $"Prices for {cardPrices.CardInfo.Name} ({cardPrices.CardInfo.Number})";
 
-            //TODO: Format Set and number in title - Charizard ex - PAF 054/091
-            var msg = new DiscordEmbedBuilder
-            {
-                Color = DiscordColor.Orange,
-                Title = $"Prices for {cardPrices.CardInfo.Name} ({cardPrices.CardInfo.Number})",
-                Description = description
-            };
+            // TODO: Try custom field in embed for TCGPlayer and CardKingdom headers
+            var msg = BuildBaseDiscordEmbed(title, cardPrices.CardInfo, description);
 
             await e.Channel.SendMessageAsync(embed: msg);
         }
 
-        private static async Task SendLegalityMessageAsync(MessageCreateEventArgs e)
+        private async Task SendLegalityMessageAsync(MessageCreateEventArgs e)
         {
             var legalityName = RegexValidator.GetLegalityName(e.Message.Content);
 
-            //TODO: Format Set and number in title - Charizard ex - 054/091
-            var msg = new DiscordEmbedBuilder
-            {
-                Color = DiscordColor.Orange,
-                Title = $"{legalityName} Legality",
-                Description = "✅ Standard\n" + "❌ Expanded\n" + "❌ Unlimited"
-            };
+            var cardLegalities = await pokemonTcgService.GetLegalitiesAsync(legalityName);
+            var legalities = cardLegalities.Legalities;
+
+            var isStandardLegal = DetermineLegality(legalities.Standard);
+            var isExpandedLegal = DetermineLegality(legalities.Expanded);
+            var isUnlimitedLegal = DetermineLegality(legalities.Unlimited);
+
+            var description = BuildLegalityDescription(isStandardLegal, nameof(legalities.Standard))
+                            + BuildLegalityDescription(isExpandedLegal, nameof(legalities.Expanded))
+                            + BuildLegalityDescription(isUnlimitedLegal, nameof(legalities.Unlimited));
+
+            var title = $"{cardLegalities.CardInfo.Name} ({cardLegalities.CardInfo.Number}) Legality";
+
+            var msg = BuildBaseDiscordEmbed(title, cardLegalities.CardInfo, description);
 
             await e.Channel.SendMessageAsync(embed: msg);
+        }
+
+        private static async Task SendErrorMessageAsync(MessageCreateEventArgs e, CardNotFoundException ex)
+        {
+            await e.Channel.SendMessageAsync($"{ex.Message}");
+        }
+
+        private static DiscordEmbedBuilder BuildBaseDiscordEmbed(string title, CardInfo cardInfo, string? description = null)
+        {
+            return new DiscordEmbedBuilder
+            {
+                Color = DiscordColor.Orange,
+                Title = title,
+                Description = description,
+                Footer = new EmbedFooter
+                {
+                    IconUrl = cardInfo.SetSymbolUri.AbsoluteUri,
+                    Text = cardInfo.SetName
+                }
+            };
+        }
+        private static string BuildLegalityDescription(bool isLegal, string formatName)
+        {
+            return _legalityEmojis[isLegal] + " " + formatName + "\n";
         }
 
         private static string BuildPricesDescription(CardPrices cardPrices)
@@ -121,6 +156,11 @@ namespace Zapdeck.Modules.PokemonTcg
             }
 
             return description;
+        }
+
+        private static bool DetermineLegality(string legality)
+        {
+            return string.Equals(legality, "Legal");
         }
     }
 }
