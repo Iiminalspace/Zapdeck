@@ -1,7 +1,6 @@
 ﻿using DSharpPlus;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
-using PokemonTcgSdk.Standard.Infrastructure.HttpClients.CommonModels;
 using System.Globalization;
 using Zapdeck.Exceptions;
 using Zapdeck.Helpers;
