@@ -9,6 +9,13 @@ namespace Zapdeck.Modules.PokemonTcg
 {
     public class PokemonTcgService(PokemonApiClient pokeClient) : IPokemonTcgService
     {
+        public async Task<CardText> GetCardTextAsync(List<string> cardName)
+        {
+            var card = await GetCardAsync(cardName);
+
+            return new CardText(card.Types, card.Hp, card.Abilities, card.Attacks, card.Weaknesses, card.Resistances, card.RetreatCost, card.Images.Small, new CardInfo(card.Name, card.Number, card.Set.Name, card.Set.Images.Symbol));
+        }
+
         public async Task<CardImageUri> GetImageUriAsync(List<string> cardName)
         {
             var card = await GetCardAsync(cardName);
