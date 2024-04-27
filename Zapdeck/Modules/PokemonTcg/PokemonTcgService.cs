@@ -15,17 +15,7 @@ namespace Zapdeck.Modules.PokemonTcg
         {
             var card = await GetCardAsync(args);
 
-            return new CardText(card.Supertype,
-                                card.Types,
-                                card.Hp,
-                                card.Abilities,
-                                card.Attacks,
-                                card.Weaknesses,
-                                card.Resistances,
-                                card.RetreatCost,
-                                card.Rules,
-                                card.Images.Small,
-                                new CardInfo(card));
+            return new CardText(card);
         }
 
         public async Task<CardImageUri> GetImageUriAsync(string[] args)

@@ -1,29 +1,20 @@
-﻿using PokemonTcgSdk.Standard.Infrastructure.HttpClients.Cards.Models;
+﻿using PokemonTcgSdk.Standard.Infrastructure.HttpClients.Cards;
+using PokemonTcgSdk.Standard.Infrastructure.HttpClients.Cards.Models;
 
 namespace Zapdeck.Models.PokemonTcg
 {
-    public class CardText(string supertype,
-                    List<string> types,
-                    int hp,
-                    List<Ability> abilities,
-                    List<Attack> attacks,
-                    List<Resistance> weaknesses,
-                    List<Resistance> resistances,
-                    List<string> retreatCost,
-                    List<string> rules,
-                    Uri image,
-                    CardInfo cardInfo)
+    public class CardText(Card card)
     {
-        public string Supertype { get; } = supertype;
-        public List<string> Types { get; } = types ?? [];
-        public int Hp { get; } = hp;
-        public List<Ability> Abilities { get; } = abilities ?? [];
-        public List<Attack> Attacks { get; } = attacks ?? [];
-        public List<Resistance> Weaknesses { get; } = weaknesses ?? [];
-        public List<Resistance> Resistances { get; } = resistances ?? [];
-        public List<string> RetreatCost { get; } = retreatCost ?? [];
-        public List<string> Rules { get; } = rules ?? [];
-        public Uri Image { get; } = image;
-        public CardInfo CardInfo { get; } = cardInfo;
+        public string Supertype { get; } = card.Supertype;
+        public List<string> Types { get; } = card.Types ?? [];
+        public int Hp { get; } = card.Hp;
+        public List<Ability> Abilities { get; } = card.Abilities ?? [];
+        public List<Attack> Attacks { get; } = card.Attacks ?? [];
+        public List<Resistance> Weaknesses { get; } = card.Weaknesses ?? [];
+        public List<Resistance> Resistances { get; } = card.Resistances ?? [];
+        public List<string> RetreatCost { get; } = card.RetreatCost ?? [];
+        public List<string> Rules { get; } = card.Rules ?? [];
+        public Uri Image { get; } = card.Images.Small;
+        public CardInfo CardInfo { get; } = new CardInfo(card);
     }
 }
