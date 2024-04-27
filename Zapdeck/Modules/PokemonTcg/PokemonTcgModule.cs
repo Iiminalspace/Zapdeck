@@ -56,6 +56,10 @@ namespace Zapdeck.Modules.PokemonTcg
             {
                 await SendErrorMessageAsync(e, ex);
             }
+            catch(Exception)
+            {
+                throw;
+            }
             
         }
 
@@ -135,7 +139,7 @@ namespace Zapdeck.Modules.PokemonTcg
                             + BuildLegalityDescription(isExpandedLegal, nameof(legalities.Expanded))
                             + BuildLegalityDescription(isUnlimitedLegal, nameof(legalities.Unlimited));
 
-            var title = $"{cardLegalities.CardInfo.Name} ({cardLegalities.CardInfo.Number}) Legality";
+            var title = FormatCardName(cardLegalities.CardInfo) + " Legality";
 
             var msg = BuildBaseDiscordEmbed(title, cardLegalities.CardInfo, description);
 
@@ -171,9 +175,17 @@ namespace Zapdeck.Modules.PokemonTcg
         {
             var cardName = FormatCardName(cardText.CardInfo);
             var description = string.Empty;
-            if (cardText.Rules.Count is not 0)
+            if (cardText.Rules.Count is 1)
             {
                 description = ReplaceEnergyEmoji(cardText.Rules.First());
+            }
+            else if (cardText.Rules.Count >= 2)
+            {
+                var rules = cardText.Rules.SkipLast(1);
+                foreach (var rule in rules)
+                {
+                    description += ReplaceEnergyEmoji(rule) + "\n";
+                }
             }
 
             var msg = BuildBaseDiscordEmbed(cardName, cardText.CardInfo, description);
@@ -250,27 +262,23 @@ namespace Zapdeck.Modules.PokemonTcg
             msg.AddField("retreat", retreatCost, true);
 
             msg.Build();
+
             return msg;
         }
 
         private static string CostToEmoji(List<string> costs)
         {
             var costEmoji = string.Empty;
-            switch (costs.Count)
+            if(costs.Count is not 0) 
             {
-                case not 0:
-                    {
-                        foreach (var cost in costs)
-                        {
-                            costEmoji += _typeEmoji[cost];
-                        }
-
-                        break;
-                    }
-
-                default:
-                    costEmoji = "\u0000";
-                    break;
+                foreach (var cost in costs)
+                {
+                    costEmoji += _typeEmoji[cost];
+                }
+            }
+            else
+            {
+                costEmoji = "\u0000";
             }
 
             return costEmoji;
@@ -288,21 +296,16 @@ namespace Zapdeck.Modules.PokemonTcg
         private static string FormatResistance(List<Resistance> resistances)
         {
             var resistanceEmoji = string.Empty;
-            switch (resistances.Count)
+            if (resistances.Count is not 0)
             {
-                case not 0:
-                    {
-                        foreach (var resistance in resistances)
-                        {
-                            resistanceEmoji += _typeEmoji[resistance.Type] + resistance.Value;
-                        }
-
-                        break;
-                    }
-
-                default:
-                    resistanceEmoji = "\u0000";
-                    break;
+                foreach (var resistance in resistances)
+                {
+                    resistanceEmoji += _typeEmoji[resistance.Type] + resistance.Value;
+                }
+            }
+            else
+            {
+                resistanceEmoji = "\u0000";
             }
 
             return resistanceEmoji;
