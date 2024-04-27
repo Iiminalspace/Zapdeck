@@ -1,6 +1,7 @@
 ﻿using DSharpPlus;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
+using PokemonTcgSdk.Standard.Infrastructure.HttpClients.Cards.Models;
 using System.Globalization;
 using Zapdeck.Exceptions;
 using Zapdeck.Helpers;
@@ -11,7 +12,6 @@ namespace Zapdeck.Modules.PokemonTcg
 {
     public class PokemonTcgModule(IPokemonTcgService pokemonTcgService) : IModule
     {
-        private const int LINE_LENGTH = 80;
         private static readonly Dictionary<bool, string> _legalityEmojis = new() { { true, "✅" }, { false, "❌" } };
         private static readonly Dictionary<string, string> _typeEmoji = new()
         {
@@ -60,10 +60,12 @@ namespace Zapdeck.Modules.PokemonTcg
 
         private async Task SendImageMessage(MessageCreateEventArgs e)
         {
-            var imageName = RegexValidator.GetImageName(e.Message.Content);
+            var imageArgs = RegexValidator.GetImageName(e.Message.Content);
 
-            var imageUri = await pokemonTcgService.GetImageUriAsync(imageName);
-            var title = $"{imageUri.CardInfo.Name} ({imageUri.CardInfo.Number})";
+            var imageUri = await pokemonTcgService.GetImageUriAsync(imageArgs);
+
+            var title = FormatCardName(imageUri.CardInfo);
+
             var msg = BuildBaseDiscordEmbed(title, imageUri.CardInfo);
 
             msg.WithImageUrl(imageUri.Uri.AbsoluteUri).Build();
@@ -73,131 +75,24 @@ namespace Zapdeck.Modules.PokemonTcg
 
         private async Task SendCardTextMessageAsync(MessageCreateEventArgs e)
         {
-            var cardTextName = RegexValidator.GetCardTextName(e.Message.Content);
+            var cardTextNameArgs = RegexValidator.GetCardTextName(e.Message.Content);
 
-            var cardText = await pokemonTcgService.GetCardTextAsync(cardTextName);
-            var cardName = $"{cardText.CardInfo.Name} ({cardText.CardInfo.Number})";
-            var hp = "HP" + cardText.Hp + " ";
+            var cardText = await pokemonTcgService.GetCardTextAsync(cardTextNameArgs);
 
-            foreach (var pokemonType in cardText.Types)
-            {
-                hp += _typeEmoji[pokemonType];
-            }
-
-            var title = $"{cardName} — {hp}";
-
-            var abilities = new Dictionary<string, string>();
-
-            if(cardText.Abilities is not null && cardText.Abilities.Count is not 0)
-            {
-                foreach(var ability in cardText.Abilities)
-                {
-                    var abilityText = ReplaceEnergyEmoji(ability.Text);
-                    abilities.Add($"{ability.Type} — {ability.Name}", abilityText);
-                }
-            }
-
-            var attacks = new Dictionary<string, string>();
-
-            if(cardText.Attacks is not null && cardText.Attacks.Count is not 0)
-            {
-                foreach(var attack in cardText.Attacks)
-                {
-                    if (String.IsNullOrEmpty(attack.Text))
-                    {
-                        //Set to a value to pass to embed builder
-                        attack.Text = "\u0000";
-                    }
-
-                    var costEmoji = string.Empty;
-
-                    foreach(var cost in attack.Cost)
-                    {
-                        costEmoji += _typeEmoji[cost];
-                    }
-
-                    var attackText = ReplaceEnergyEmoji(attack.Text);
-
-                    if (String.IsNullOrEmpty(attack.Damage))
-                    {
-                        attacks.Add($"{costEmoji} {attack.Name}", attackText);
-                    }
-                    else
-                    {
-                        attacks.Add($"{costEmoji} {attack.Name} *{attack.Damage}*", attackText);
-                    }
-                }
-            }
-
-            var msg = BuildBaseDiscordEmbed(title, cardText.CardInfo);
-            msg.WithThumbnail(cardText.Image.AbsoluteUri);
-            
-            foreach(var ability in abilities)
-            {
-                msg.AddField(ability.Key, ability.Value);
-            }
-
-            foreach(var attack in attacks)
-            {
-                msg.AddField(attack.Key, attack.Value);
-            }
-
-            var cardWeakness = string.Empty;
-            if(cardText.Weaknesses is not null && cardText.Weaknesses.Count is not 0)
-            {
-                foreach (var weakness in cardText.Weaknesses)
-                {
-                    cardWeakness += _typeEmoji[weakness.Type] + weakness.Value;
-                }
-            }
-            else
-            {
-                cardWeakness = "\u0000";
-            }
-
-            msg.AddField("weakness", cardWeakness, true);
-
-            var cardResistance = string.Empty;
-            if(cardText.Resistances is not null && cardText.Resistances.Count is not 0)
-            {
-                foreach (var resistance in cardText.Resistances)
-                {
-                    cardResistance += _typeEmoji[resistance.Type] + resistance.Value;
-                }
-            }
-            else
-            {
-                cardResistance = "\u0000";
-            }
-
-            msg.AddField("resistance", cardResistance, true);
-
-            var retreatCost = string.Empty;
-            if(cardText.RetreatCost is not null && cardText.RetreatCost.Count is not 0)
-            {
-                foreach (var cost in cardText.RetreatCost)
-                {
-                    retreatCost += _typeEmoji[cost];
-                }
-            }
-            else
-            {
-                retreatCost = "\u0000";
-            }
-
-            msg.AddField("retreat", retreatCost, true);
-
-            msg.Build();
+            var msg = cardText.Supertype.Equals("Pokémon") ? BuildPokemonCard(cardText) : BuildCard(cardText);
 
             await e.Channel.SendMessageAsync(embed: msg);
         }
 
         private async Task SendPriceMessageAsync(MessageCreateEventArgs e)
         {
-            var priceName = RegexValidator.GetPriceName(e.Message.Content);
+            var priceNameArgs = RegexValidator.GetPriceName(e.Message.Content);
 
-            var cardPrices = await pokemonTcgService.GetPricesAsync(priceName);
-            var title = $"Prices for {cardPrices.CardInfo.Name} ({cardPrices.CardInfo.Number})";
+            var cardPrices = await pokemonTcgService.GetPricesAsync(priceNameArgs);
+
+            var cardName = FormatCardName(cardPrices.CardInfo);
+
+            var title = $"Prices for {cardName}";
             var msg = BuildBaseDiscordEmbed(title, cardPrices.CardInfo);
 
             var tcgPlayerPrices = string.Empty;
@@ -226,9 +121,9 @@ namespace Zapdeck.Modules.PokemonTcg
 
         private async Task SendLegalityMessageAsync(MessageCreateEventArgs e)
         {
-            var legalityName = RegexValidator.GetLegalityName(e.Message.Content);
+            var legalityNameArgs = RegexValidator.GetLegalityName(e.Message.Content);
 
-            var cardLegalities = await pokemonTcgService.GetLegalitiesAsync(legalityName);
+            var cardLegalities = await pokemonTcgService.GetLegalitiesAsync(legalityNameArgs);
             var legalities = cardLegalities.Legalities;
 
             var isStandardLegal = DetermineLegality(legalities.Standard);
@@ -271,9 +166,145 @@ namespace Zapdeck.Modules.PokemonTcg
             return _legalityEmojis[isLegal] + " " + formatName + "\n";
         }
 
+        private static DiscordEmbedBuilder BuildCard(CardText cardText)
+        {
+            var cardName = FormatCardName(cardText.CardInfo);
+            var description = string.Empty;
+            if (cardText.Rules.Count is not 0)
+            {
+                description = ReplaceEnergyEmoji(cardText.Rules.First());
+            }
+
+            var msg = BuildBaseDiscordEmbed(cardName, cardText.CardInfo, description);
+            msg.WithThumbnail(cardText.Image.AbsoluteUri).Build();
+
+            return msg;
+        }
+
+        private static DiscordEmbedBuilder BuildPokemonCard(CardText cardText)
+        {
+            var cardName = FormatCardName(cardText.CardInfo);
+            var hp = "HP" + cardText.Hp + " " + CostToEmoji(cardText.Types);
+
+            var title = $"{cardName} — {hp}";
+
+            var abilities = new Dictionary<string, string>();
+
+            if (cardText.Abilities.Count is not 0)
+            {
+                foreach (var ability in cardText.Abilities)
+                {
+                    var abilityText = ReplaceEnergyEmoji(ability.Text);
+                    abilities.Add($"{ability.Type} — {ability.Name}", abilityText);
+                }
+            }
+
+            var attacks = new Dictionary<string, string>();
+
+            if (cardText.Attacks.Count is not 0)
+            {
+                foreach (var attack in cardText.Attacks)
+                {
+                    if (string.IsNullOrEmpty(attack.Text))
+                    {
+                        //Set to a value to pass to embed builder
+                        attack.Text = "\u0000";
+                    }
+
+                    var attackCost = CostToEmoji(attack.Cost);
+
+                    var attackText = ReplaceEnergyEmoji(attack.Text);
+
+                    if (string.IsNullOrEmpty(attack.Damage))
+                    {
+                        attacks.Add($"{attackCost} {attack.Name}", attackText);
+                    }
+                    else
+                    {
+                        attacks.Add($"{attackCost} {attack.Name} *{attack.Damage}*", attackText);
+                    }
+                }
+            }
+
+            var msg = BuildBaseDiscordEmbed(title, cardText.CardInfo);
+            msg.WithThumbnail(cardText.Image.AbsoluteUri);
+
+            foreach (var ability in abilities)
+            {
+                msg.AddField(ability.Key, ability.Value);
+            }
+
+            foreach (var attack in attacks)
+            {
+                msg.AddField(attack.Key, attack.Value);
+            }
+
+            var weakness = FormatResistance(cardText.Weaknesses);
+            msg.AddField("weakness", weakness, true);
+
+            var resistance = FormatResistance(cardText.Resistances);
+            msg.AddField("resistance", resistance, true);
+
+            var retreatCost = CostToEmoji(cardText.RetreatCost);
+            msg.AddField("retreat", retreatCost, true);
+
+            msg.Build();
+            return msg;
+        }
+
+        private static string CostToEmoji(List<string> costs)
+        {
+            var costEmoji = string.Empty;
+            switch (costs.Count)
+            {
+                case not 0:
+                    {
+                        foreach (var cost in costs)
+                        {
+                            costEmoji += _typeEmoji[cost];
+                        }
+
+                        break;
+                    }
+
+                default:
+                    costEmoji = "\u0000";
+                    break;
+            }
+
+            return costEmoji;
+        }
+
         private static bool DetermineLegality(string legality)
         {
             return string.Equals(legality, "Legal");
+        }
+
+        private static string FormatCardName(CardInfo cardInfo)
+        {
+            return $"{cardInfo.Name} ({cardInfo.SetCode} {cardInfo.Number})";
+        }
+        private static string FormatResistance(List<Resistance> resistances)
+        {
+            var resistanceEmoji = string.Empty;
+            switch (resistances.Count)
+            {
+                case not 0:
+                    {
+                        foreach (var resistance in resistances)
+                        {
+                            resistanceEmoji += _typeEmoji[resistance.Type] + resistance.Value;
+                        }
+
+                        break;
+                    }
+
+                default:
+                    resistanceEmoji = "\u0000";
+                    break;
+            }
+
+            return resistanceEmoji;
         }
 
         private static string ReplaceEnergyEmoji(string text)

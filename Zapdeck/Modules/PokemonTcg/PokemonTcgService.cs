@@ -1,7 +1,9 @@
 ﻿using PokemonTcgSdk.Standard.Features.FilterBuilder.Pokemon;
+using PokemonTcgSdk.Standard.Features.FilterBuilder.Set;
 using PokemonTcgSdk.Standard.Infrastructure.HttpClients;
 using PokemonTcgSdk.Standard.Infrastructure.HttpClients.Cards;
 using PokemonTcgSdk.Standard.Infrastructure.HttpClients.Cards.Models;
+using PokemonTcgSdk.Standard.Infrastructure.HttpClients.Set;
 using Zapdeck.Exceptions;
 using Zapdeck.Models.PokemonTcg;
 
@@ -9,59 +11,113 @@ namespace Zapdeck.Modules.PokemonTcg
 {
     public class PokemonTcgService(PokemonApiClient pokeClient) : IPokemonTcgService
     {
-        public async Task<CardText> GetCardTextAsync(List<string> cardName)
+        public async Task<CardText> GetCardTextAsync(string[] args)
         {
-            var card = await GetCardAsync(cardName);
+            var card = await GetCardAsync(args);
 
-            return new CardText(card.Types, card.Hp, card.Abilities, card.Attacks, card.Weaknesses, card.Resistances, card.RetreatCost, card.Images.Small, new CardInfo(card.Name, card.Number, card.Set.Name, card.Set.Images.Symbol));
+            return new CardText(card.Supertype,
+                                card.Types,
+                                card.Hp,
+                                card.Abilities,
+                                card.Attacks,
+                                card.Weaknesses,
+                                card.Resistances,
+                                card.RetreatCost,
+                                card.Rules,
+                                card.Images.Small,
+                                new CardInfo(card));
         }
 
-        public async Task<CardImageUri> GetImageUriAsync(List<string> cardName)
+        public async Task<CardImageUri> GetImageUriAsync(string[] args)
         {
-            var card = await GetCardAsync(cardName);
+            var card = await GetCardAsync(args);
 
-            return new CardImageUri(card.Images.Large, new CardInfo(card.Name, card.Number, card.Set.Name, card.Set.Images.Symbol));
+            return new CardImageUri(card.Images.Large, new CardInfo(card));
         }
 
-        public async Task<CardLegalities> GetLegalitiesAsync(List<string> cardName)
+        public async Task<CardLegalities> GetLegalitiesAsync(string[] args)
         {
-            var card = await GetCardAsync(cardName);
+            var card = await GetCardAsync(args);
 
-            return new CardLegalities(card.Legalities, new CardInfo(card.Name, card.Number, card.Set.Name, card.Set.Images.Symbol));
+            return new CardLegalities(card.Legalities, new CardInfo(card));
         }
 
-        public async Task<CardPrices> GetPricesAsync(List<string> cardName)
+        public async Task<CardPrices> GetPricesAsync(string[] args)
         {
-            var card = await GetCardAsync(cardName);
+            var card = await GetCardAsync(args);
 
-            var tcgPlayerPrices = GetTcgPlayerPrices(card.Tcgplayer.Prices);
-            var cardMarketPrices = GetCardMarketPrices(card.Cardmarket.Prices);
+            var tcgPlayerPrices = MapTcgPlayerPrices(card.Tcgplayer.Prices);
+            var cardMarketPrices = MapCardMarketPrices(card.Cardmarket.Prices);
 
-            return new CardPrices(tcgPlayerPrices, cardMarketPrices, new CardInfo(card.Name, card.Number, card.Set.Name, card.Set.Images.Symbol));
+            return new CardPrices(tcgPlayerPrices, cardMarketPrices, new CardInfo(card));
         }
 
-        private async Task<Card> GetCardAsync(List<string> cardName)
+        private async Task<Card> GetCardAsync(string[] args)
         {
-            var filter = PokemonFilterBuilder.CreatePokemonFilter();
-            if (cardName.Count == 1)
+            //Array is always length 3
+            var name = args[0];
+            var code = args[1];
+            var number = args[2];
+
+            Card? card;
+            if (string.IsNullOrEmpty(code))
             {
-                filter.AddName(cardName.First());
+                var nameFilter = PokemonFilterBuilder.CreatePokemonFilter().AddName(name);
+                var cards = await pokeClient.GetApiResourceAsync<Card>(nameFilter);
+                card = FilterCards(cards.Results, name);
+            }
+            else if (string.IsNullOrEmpty(number))
+            {
+                var setFilter = await BuildSetFilter(name, code);
+                var cards = await pokeClient.GetApiResourceAsync<Card>(setFilter);
+                card = FilterCards(cards.Results, name);
             }
             else
             {
-                filter.AddName(cardName.First())
-                      .TryAdd("number", cardName[1].TrimStart('0'));
+                var trimmedNumber = number.TrimStart('0');
+                var setFilter = await BuildSetFilter(name, code, trimmedNumber);
+                var cards = await pokeClient.GetApiResourceAsync<Card>(setFilter);
+
+                card = cards.Results.FirstOrDefault();
             }
-            
 
-            var cards = await pokeClient.GetApiResourceAsync<Card>(filter);
-            var card = cards.Results.OrderByDescending(x => DateTime.Parse(x.Set.ReleaseDate))
-                                    .FirstOrDefault(x => x.Name.Equals(cardName.First(), StringComparison.CurrentCultureIgnoreCase));
-
-            return card is null ? throw new CardNotFoundException(cardName.First()) : card;
+            return card is null ? throw new CardNotFoundException(name) : card;
         }
 
-        private static Dictionary<string, double> GetTcgPlayerPrices(TcgPlayerPrices tcgPrices)
+        private async Task<PokemonFilterCollection<string, string>> BuildSetFilter(string name, string code, string? number = null)
+        {
+            var ptcgoFilter = SetFilterBuilder.CreateSetFilter();
+            ptcgoFilter.Add("ptcgoCode", code);
+            var sets = await pokeClient.GetApiResourceAsync<Set>(ptcgoFilter);
+            var setIdFilter = PokemonFilterBuilder.CreatePokemonFilter();
+
+            switch (sets.Results.Count)
+            {
+                case 0:
+                    setIdFilter.AddName(name)
+                               .AddSetId(code);
+                    break;
+                default:
+                    setIdFilter.AddName(name)
+                               .AddSetId(sets.Results.First().Id);
+                    break;
+            }
+
+            if (number is not null)
+            {
+                setIdFilter.Add("number", number);
+            }
+
+            return setIdFilter;
+        }
+
+        private static Card? FilterCards(List<Card> cards, string name)
+        {
+            return cards.OrderByDescending(x => DateTime.Parse(x.Set.ReleaseDate))
+                        .FirstOrDefault(x => x.Name.Equals(name, StringComparison.CurrentCultureIgnoreCase));
+        }
+
+        private static Dictionary<string, double> MapTcgPlayerPrices(TcgPlayerPrices tcgPrices)
         {
             var tcgPlayerPrices = new Dictionary<string, double>();
 
@@ -97,7 +153,7 @@ namespace Zapdeck.Modules.PokemonTcg
             return tcgPlayerPrices;
         }
 
-        private static Dictionary<string, decimal> GetCardMarketPrices(CardMarketPrices cardMarketPrices)
+        private static Dictionary<string, decimal> MapCardMarketPrices(CardMarketPrices cardMarketPrices)
         {
             var cmPrices = new Dictionary<string, decimal>();
 

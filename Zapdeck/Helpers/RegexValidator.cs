@@ -16,21 +16,52 @@ namespace Zapdeck.Helpers
         [GeneratedRegex(@"\[\#([^\(]*?)(?:\((.*?)\))?\]")]
         public static partial Regex MatchForLegality();
 
-        public static List<string> GetCardTextName(string message) => MatchForCardText().Match(message).Groups[1]
-                                                                                        .ToString()
-                                                                                        .Split("|", StringSplitOptions.TrimEntries)
-                                                                                        .ToList();
-        public static List<string> GetImageName(string message) => MatchForImage().Match(message).Groups[1]
-                                                                                  .ToString()
-                                                                                  .Split("|", StringSplitOptions.TrimEntries)
-                                                                                  .ToList();
-        public static List<string> GetPriceName(string message) => MatchForPrice().Match(message).Groups[1]
-                                                                                  .ToString()
-                                                                                  .Split("|", StringSplitOptions.TrimEntries)
-                                                                                  .ToList(); 
-        public static List<string> GetLegalityName(string message) => MatchForLegality().Match(message).Groups[1]
-                                                                                        .ToString()
-                                                                                        .Split("|", StringSplitOptions.TrimEntries)
-                                                                                        .ToList();
+        public static string[] GetCardTextName(string message)
+        {
+            var args = MatchForCardText().Match(message).Groups[1]
+                                         .ToString()
+                                         .Split("|", StringSplitOptions.TrimEntries);
+
+            return MapArgs(args);
+        }
+
+
+        public static string[] GetImageName(string message)
+        {
+            var args = MatchForImage().Match(message).Groups[1]
+                                      .ToString()
+                                      .Split("|", StringSplitOptions.TrimEntries);
+
+            return MapArgs(args);
+        }
+        public static string[] GetPriceName(string message)
+        {
+            var args = MatchForPrice().Match(message).Groups[1]
+                                      .ToString()
+                                      .Split("|", StringSplitOptions.TrimEntries);
+
+            return MapArgs(args);
+        }
+
+        public static string[] GetLegalityName(string message)
+        {
+            var args = MatchForLegality().Match(message).Groups[1]
+                                         .ToString()
+                                         .Split("|", StringSplitOptions.TrimEntries);
+
+            return MapArgs(args);
+        } 
+                                                                                        
+        private static string[] MapArgs(string[] args)
+        {
+            var maxArgs = new string[3];
+
+            for (int i = 0; i < args.Length; i++)
+            {
+                maxArgs[i] = args[i];
+            }
+
+            return maxArgs;
+        }
     }
 }
