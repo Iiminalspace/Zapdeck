@@ -36,9 +36,17 @@ namespace Zapdeck.Modules.PokemonTcg
         {
             var card = await GetCardAsync(args);
 
-            var tcgPlayerPrices = MapTcgPlayerPrices(card.Tcgplayer.Prices);
-            var cardMarketPrices = MapCardMarketPrices(card.Cardmarket.Prices);
+            Dictionary<string, double> tcgPlayerPrices = [];
+            if (card.Tcgplayer is not null)
+            {
+                tcgPlayerPrices = MapTcgPlayerPrices(card.Tcgplayer.Prices);
+            }
 
+            Dictionary<string, decimal> cardMarketPrices = [];
+            if (card.Cardmarket is not null)
+            {
+               cardMarketPrices = MapCardMarketPrices(card.Cardmarket.Prices);
+            }
             return new CardPrices(tcgPlayerPrices, cardMarketPrices, new CardInfo(card));
         }
 
@@ -81,25 +89,25 @@ namespace Zapdeck.Modules.PokemonTcg
             var sets = await pokeClient.GetApiResourceAsync<Set>(ptcgoFilter);
             var setIdFilter = PokemonFilterBuilder.CreatePokemonFilter();
 
-            switch (sets.Results.Count)
+            if(sets.Results.Count is 0)
             {
-                case 0:
-                    setIdFilter.AddName(name)
-                               .AddSetId(code);
-                    break;
-                case >= 2:
-                    setIdFilter.AddName(name);
-                    foreach (var set in sets.Results)
-                    {
-                        setIdFilter.AddSetId(set.Id);
-                    }
-                    break;
-                default:
-                    setIdFilter.AddName(name)
-                               .AddSetId(sets.Results.First().Id);
-                    break;
+                setIdFilter.AddName(name)
+                           .AddSetId(code);
             }
-
+            else if(sets.Results.Count >= 2)
+            {
+                setIdFilter.AddName(name);
+                foreach (var set in sets.Results)
+                {
+                    setIdFilter.AddSetId(set.Id);
+                }
+            }
+            else
+            {
+                setIdFilter.AddName(name)
+                           .AddSetId(sets.Results.First().Id);
+            }
+                    
             if (number is not null)
             {
                 setIdFilter.Add("number", number);
