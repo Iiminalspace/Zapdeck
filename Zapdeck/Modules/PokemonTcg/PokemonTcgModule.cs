@@ -84,7 +84,7 @@ namespace Zapdeck.Modules.PokemonTcg
 
             var cardText = await pokemonTcgService.GetCardTextAsync(cardTextNameArgs);
 
-            var msg = cardText.Supertype.Equals("Pokémon") ? BuildPokemonCard(cardText) : BuildCard(cardText);
+            var msg = cardText.Supertype.Equals("Pokémon") ? BuildPokemonCardEmbed(cardText) : BuildCardEmbed(cardText);
 
             await e.Channel.SendMessageAsync(embed: msg);
         }
@@ -100,13 +100,13 @@ namespace Zapdeck.Modules.PokemonTcg
             var title = $"Prices for {cardName}";
             var msg = BuildBaseDiscordEmbed(title, cardPrices.CardInfo);
 
-            var tcgPlayerPrices = string.Empty;
+            var tcgPlayerPrices = "\u0000";
             foreach (var tcgPlayerPrice in cardPrices.TcgPlayerPrices)
             {
                 tcgPlayerPrices = tcgPlayerPrice.Key + ": " + tcgPlayerPrice.Value.ToString("C2") + "\n";
             }
 
-            var cardMarketPrices = string.Empty;
+            var cardMarketPrices = "\u0000";
             foreach (var cardMarketPrice in cardPrices.CardMarketPrices)
             {
                 if (cardMarketPrice.Value > 0M)
@@ -171,7 +171,7 @@ namespace Zapdeck.Modules.PokemonTcg
             return _legalityEmojis[isLegal] + " " + formatName + "\n";
         }
 
-        private static DiscordEmbedBuilder BuildCard(CardText cardText)
+        private static DiscordEmbedBuilder BuildCardEmbed(CardText cardText)
         {
             var cardName = FormatCardName(cardText.CardInfo);
             var description = string.Empty;
@@ -194,7 +194,7 @@ namespace Zapdeck.Modules.PokemonTcg
             return msg;
         }
 
-        private static DiscordEmbedBuilder BuildPokemonCard(CardText cardText)
+        private static DiscordEmbedBuilder BuildPokemonCardEmbed(CardText cardText)
         {
             var cardName = FormatCardName(cardText.CardInfo);
             var hp = "HP" + cardText.Hp + " " + CostToEmoji(cardText.Types);
@@ -203,7 +203,7 @@ namespace Zapdeck.Modules.PokemonTcg
 
             var abilities = new Dictionary<string, string>();
 
-            if (cardText.Abilities.Count is not 0)
+            if (cardText.Abilities.Count > 0)
             {
                 foreach (var ability in cardText.Abilities)
                 {
@@ -214,7 +214,7 @@ namespace Zapdeck.Modules.PokemonTcg
 
             var attacks = new Dictionary<string, string>();
 
-            if (cardText.Attacks.Count is not 0)
+            if (cardText.Attacks.Count > 0)
             {
                 foreach (var attack in cardText.Attacks)
                 {
@@ -269,7 +269,7 @@ namespace Zapdeck.Modules.PokemonTcg
         private static string CostToEmoji(List<string> costs)
         {
             var costEmoji = string.Empty;
-            if(costs.Count is not 0) 
+            if(costs.Count > 0) 
             {
                 foreach (var cost in costs)
                 {
@@ -293,10 +293,11 @@ namespace Zapdeck.Modules.PokemonTcg
         {
             return $"{cardInfo.Name} ({cardInfo.SetCode} {cardInfo.Number})";
         }
+
         private static string FormatResistance(List<Resistance> resistances)
         {
             var resistanceEmoji = string.Empty;
-            if (resistances.Count is not 0)
+            if (resistances.Count > 0)
             {
                 foreach (var resistance in resistances)
                 {
