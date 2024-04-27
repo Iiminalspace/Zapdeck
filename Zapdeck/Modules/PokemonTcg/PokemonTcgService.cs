@@ -97,6 +97,13 @@ namespace Zapdeck.Modules.PokemonTcg
                     setIdFilter.AddName(name)
                                .AddSetId(code);
                     break;
+                case >= 2:
+                    setIdFilter.AddName(name);
+                    foreach (var set in sets.Results)
+                    {
+                        setIdFilter.AddSetId(set.Id);
+                    }
+                    break;
                 default:
                     setIdFilter.AddName(name)
                                .AddSetId(sets.Results.First().Id);

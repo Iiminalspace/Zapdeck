@@ -27,6 +27,7 @@ namespace Zapdeck.Modules.PokemonTcg
             { "Psychic", "<:Psychic:1231421970902417428>" },
             { "Water", "<:Water:1231421068099452968>" }
         };
+
         public async Task OnMessageCreated(DiscordClient client, MessageCreateEventArgs e)
         {
             //Do not reply if the author is a bot
